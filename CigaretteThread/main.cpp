@@ -1,118 +1,126 @@
 #include <iostream>
 #include <thread>
 #include <mutex>
-#include <condition_variable>
-#include <chrono>
+#include <semaphore.h>
 #include <random>
+#include <chrono>
+#include <map>
 
 using namespace std;
 
-// Mutex et condition variable pour gérer la synchronisation
+// Sémaphores pour les fumeurs
+binary_semaphore tobaccoSmokerSem(0);
+binary_semaphore paperSmokerSem(0);
+binary_semaphore matchSmokerSem(0);
+binary_semaphore agentSem(1); // Sémaphore pour synchroniser l'agent
+
+// Mutex pour protéger l'accès aux ressources partagées
 mutex mtx;
-condition_variable cv;
+bool isTobacco = false, isPaper = false, isMatch = false;
 
-bool hasTobacco = false;   // Indique si le tabac est disponible
-bool hasPaper = false;     // Indique si le papier est disponible
-bool hasMatches = false;   // Indique si les allumettes sont disponibles
+// Map pour afficher les ingrédients
+map<unsigned, string> ingredients = { {0, "Tobacco"}, {1, "Paper"}, {2, "Match"} };
 
-void agent() {
-    default_random_engine generator;
-    uniform_int_distribution<int> distribution(0, 2); // Pour choisir deux ingrédients aléatoires
-
-    while (true) {
-        this_thread::sleep_for(chrono::seconds(2)); // Simuler le temps de choix des ingrédients
-
-        // Choisir deux ingrédients aléatoires
-        int first = distribution(generator);
-        int second = distribution(generator);
-
-        // S'assurer que les ingrédients choisis sont différents
-        while (first == second) {
-            second = distribution(generator);
-        }
-
-        // Mettre à disposition les ingrédients choisis
-        {
-            lock_guard<mutex> lock(mtx); // Protection de la section critique
-            if (first == 0 && second == 1) { // Tabac et Papier
-                hasTobacco = true;
-                hasPaper = true;
-                cout << "Agent: Tabac et Papier sont disponibles." << endl;
-            } else if (first == 1 && second == 2) { // Papier et Allumettes
-                hasPaper = true;
-                hasMatches = true;
-                cout << "Agent: Papier et Allumettes sont disponibles." << endl;
-            } else if (first == 0 && second == 2) { // Tabac et Allumettes
-                hasTobacco = true;
-                hasMatches = true;
-                cout << "Agent: Tabac et Allumettes sont disponibles." << endl;
-            }
-        }
-
-        cv.notify_all(); // Notifier tous les fumeurs
-    }
-}
-
-void smokerWithMatches() {
-    while (true) {
-        unique_lock<mutex> lock(mtx);
-        cv.wait(lock, [] { return hasTobacco && hasPaper; }); // Attendre que le tabac et le papier soient disponibles
-
-        // Prendre les ingrédients
-        hasTobacco = false; // Prendre le tabac
-        hasPaper = false;   // Prendre le papier
-        lock.unlock(); // Déverrouiller avant de fumer
-
-        // Simuler le temps de fumage
-        cout << "Fumeur avec Allumettes: Je fume une cigarette." << endl;
-        this_thread::sleep_for(chrono::seconds(1));
-    }
-}
-
+// Fumeur avec tabac
 void smokerWithTobacco() {
     while (true) {
-        unique_lock<mutex> lock(mtx);
-        cv.wait(lock, [] { return hasPaper && hasMatches; }); // Attendre que le papier et les allumettes soient disponibles
-
-        // Prendre les ingrédients
-        hasPaper = false;   // Prendre le papier
-        hasMatches = false; // Prendre les allumettes
-        lock.unlock(); // Déverrouiller avant de fumer
-
-        // Simuler le temps de fumage
-        cout << "Fumeur avec Tabac: Je fume une cigarette." << endl;
-        this_thread::sleep_for(chrono::seconds(1));
+        tobaccoSmokerSem.acquire(); // Attend que le médiateur réveille ce fumeur
+        cout << "Le fumeur avec le tabac fabrique une cigarette.\n";
+        this_thread::sleep_for(chrono::seconds(1));  // Simule la fabrication d'une cigarette
+        cout << "Le fumeur avec le tabac fume une cigarette.\n";
+        agentSem.release();  // Réveille l'agent pour qu'il fournisse les prochains ingrédients
     }
 }
 
+// Fumeur avec papier
 void smokerWithPaper() {
     while (true) {
-        unique_lock<mutex> lock(mtx);
-        cv.wait(lock, [] { return hasTobacco && hasMatches; }); // Attendre que le tabac et les allumettes soient disponibles
-
-        // Prendre les ingrédients
-        hasTobacco = false; // Prendre le tabac
-        hasMatches = false; // Prendre les allumettes
-        lock.unlock(); // Déverrouiller avant de fumer
-
-        // Simuler le temps de fumage
-        cout << "Fumeur avec Papier: Je fume une cigarette." << endl;
-        this_thread::sleep_for(chrono::seconds(1));
+        paperSmokerSem.acquire();  // Attend que le médiateur réveille ce fumeur
+        cout << "Le fumeur avec le papier fabrique une cigarette.\n";
+        this_thread::sleep_for(chrono::seconds(1));  // Simule la fabrication d'une cigarette
+        cout << "Le fumeur avec le papier fume une cigarette.\n";
+        agentSem.release();  // Réveille l'agent pour qu'il fournisse les prochains ingrédients
     }
 }
 
-int main() {
-    // Création des threads pour l'agent et les fumeurs
-    thread agentThread(agent);
-    thread smoker1(smokerWithMatches);
-    thread smoker2(smokerWithTobacco);
-    thread smoker3(smokerWithPaper);
+// Fumeur avec allumettes
+void smokerWithMatches() {
+    while (true) {
+        matchSmokerSem.acquire();  // Attend que le médiateur réveille ce fumeur
+        cout << "Le fumeur avec les allumettes fabrique une cigarette.\n";
+        this_thread::sleep_for(chrono::seconds(1));  // Simule la fabrication d'une cigarette
+        cout << "Le fumeur avec les allumettes fume une cigarette.\n";
+        agentSem.release();  // Réveille l'agent pour qu'il fournisse les prochains ingrédients
+    }
+}
 
-    // Attendre la fin des threads (jamais atteint dans ce cas)
+// Médiateur
+void mediator() {
+    while (true) {
+        lock_guard<mutex> lock(mtx);
+
+        if (isTobacco && isPaper) {
+            cout << "Réveille le fumeur avec allumettes\n";
+            matchSmokerSem.release();
+            isTobacco = isPaper = false;
+        } else if (isTobacco && isMatch) {
+            cout << "Réveille le fumeur avec papier\n";
+            paperSmokerSem.release();
+            isTobacco = isMatch = false;
+        } else if (isPaper && isMatch) {
+            cout << "Réveille le fumeur avec tabac\n";
+            tobaccoSmokerSem.release();
+            isPaper = isMatch = false;
+        }
+    }
+}
+
+// Agent
+void agent() {
+    while (true) {
+        agentSem.acquire();
+        this_thread::sleep_for(chrono::seconds(1));
+        random_device rd;
+        mt19937 gen(rd());
+        uniform_int_distribution<> dist(0, 2);
+        int ingredient1 = dist(gen);
+        int ingredient2 = dist(gen);
+        while (ingredient1 == ingredient2) {
+            ingredient2 = dist(gen);
+        }
+        {
+            lock_guard<mutex> lock(mtx);
+            cout << "Agent place les ingrédients : " << ingredients[ingredient1] << " et " << ingredients[ingredient2] << endl;
+            if ((ingredient1 == 0 && ingredient2 == 1) || (ingredient1 == 1 && ingredient2 == 0)) {
+                isTobacco = true;
+                isPaper = true;
+            } else if ((ingredient1 == 0 && ingredient2 == 2) || (ingredient1 == 2 && ingredient2 == 0)) {
+                isTobacco = true;
+                isMatch = true;
+            } else if ((ingredient1 == 1 && ingredient2 == 2) || (ingredient1 == 2 && ingredient1 == 1)) {
+                isPaper = true;
+                isMatch = true;
+            }
+        }
+        this_thread::sleep_for(chrono::milliseconds(100));
+    }
+}
+
+
+int main() {
+    // Démarrer les threads
+    thread agentThread(agent);
+    thread mediatorThread(mediator);
+    thread smokerWithTobaccoThread(smokerWithTobacco);
+    thread smokerWithPaperThread(smokerWithPaper);
+    thread smokerWithMatchThread(smokerWithMatches);
+
+    // Joindre les threads
     agentThread.join();
-    smoker1.join();
-    smoker2.join();
-    smoker3.join();
+    mediatorThread.join();
+    smokerWithTobaccoThread.join();
+    smokerWithPaperThread.join();
+    smokerWithMatchThread.join();
 
     return 0;
 }

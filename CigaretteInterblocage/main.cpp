@@ -33,35 +33,42 @@ map<unsigned, string> ingredients = {
 // Fumeur avec tabac (a besoin de papier et d'allumettes)
 void smokerWithTobacco() {
     while (true) {
-        paperSem.acquire();
-        matchSem.acquire();
+        {
+            lock_guard<mutex> lock(mtx);  // Assure une acquisition atomique des sémaphores
+            paperSem.acquire();
+            matchSem.acquire();
+        }
         cout << "Le fumeur avec le tabac fabrique une cigarette.\n";
-        this_thread::sleep_for(chrono::seconds(1));  // Simule la fabrication d'une cigarette
-        agentSem.release();  // Réveille l'agent pour qu'il fournisse les prochains ingrédients
+        this_thread::sleep_for(chrono::seconds(1));
+        agentSem.release();
         cout << "Le fumeur avec le tabac fume une cigarette.\n";
     }
 }
 
-// Fumeur avec papier (a besoin de tabac et d'allumettes)
 void smokerWithPaper() {
     while (true) {
-        tobaccoSem.acquire();
-        matchSem.acquire();
+        {
+            lock_guard<mutex> lock(mtx);  // Assure une acquisition atomique des sémaphores
+            tobaccoSem.acquire();
+            matchSem.acquire();
+        }
         cout << "Le fumeur avec le papier fabrique une cigarette.\n";
-        this_thread::sleep_for(chrono::seconds(1));  // Simule la fabrication d'une cigarette
-        agentSem.release();  // Réveille l'agent pour qu'il fournisse les prochains ingrédients
+        this_thread::sleep_for(chrono::seconds(1));
+        agentSem.release();
         cout << "Le fumeur avec le papier fume une cigarette.\n";
     }
 }
 
-// Fumeur avec allumettes (a besoin de tabac et de papier)
 void smokerWithMatches() {
     while (true) {
-        tobaccoSem.acquire();
-        paperSem.acquire();
+        {
+            lock_guard<mutex> lock(mtx);  // Assure une acquisition atomique des sémaphores
+            tobaccoSem.acquire();
+            paperSem.acquire();
+        }
         cout << "Le fumeur avec les allumettes fabrique une cigarette.\n";
-        this_thread::sleep_for(chrono::seconds(1));  // Simule la fabrication d'une cigarette
-        agentSem.release();  // Réveille l'agent pour qu'il fournisse les prochains ingrédients
+        this_thread::sleep_for(chrono::seconds(1));
+        agentSem.release();
         cout << "Le fumeur avec les allumettes fume une cigarette.\n";
     }
 }
@@ -83,20 +90,13 @@ void agent() {
         cout << "Agent place les ingrédients : " << ingredients[ingredient1] << " et " << ingredients[ingredient2] << endl;
 
         if ((ingredient1 == 0 && ingredient2 == 1) || (ingredient1 == 1 && ingredient2 == 0)) {
-            // matchSem.release();
             tobaccoSem.release();
             paperSem.release();
         } else if ((ingredient1 == 0 && ingredient2 == 2) || (ingredient1 == 2 && ingredient2 == 0)) {
-            // paperSem.release();
             tobaccoSem.release();
             matchSem.release();
         } else if ((ingredient1 == 1 && ingredient2 == 2) || (ingredient1 == 2 && ingredient1 == 1)) {
-            // tobaccoSem.release();
             paperSem.release();
-            thread smokerWithTobaccoThread(smokerWithTobacco);
-            thread smokerWithPaperThread(smokerWithPaper);
-            thread smokerWithMatchThread(smokerWithMatches);
-
             matchSem.release();
         }
     }
