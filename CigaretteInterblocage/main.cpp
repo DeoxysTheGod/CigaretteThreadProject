@@ -8,74 +8,75 @@
 
 using namespace std;
 
-// Sémaphores pour les ingrédients et la synchronisation
-binary_semaphore tobaccoSem(0);
-binary_semaphore paperSem(0);
-binary_semaphore matchSem(0);
-binary_semaphore agentSem(1);
+// Semaphores for ingredients and synchronization
+binary_semaphore breadSem(0);  // Bread (tartine)
+binary_semaphore butterSem(0); // Butter
+binary_semaphore jamSem(0);    // Jam
+binary_semaphore motherSem(1); // Semaphore for the mother (agent)
 
-// Mutex pour la protection des variables partagées
+// Mutex for protecting shared resources
 mutex mtx;
-bool isTobacco = false, isPaper = false, isMatch = false;
 
-
-// afficher les ingrédients
+// Map to display ingredients
 map<unsigned, string> ingredients = {
-    {0, "Tobacco"},
-    {1, "Paper"},
-    {2, "Match"}
+    {0, "Bread"},
+    {1, "Butter"},
+    {2, "Jam"}
 };
 
 //---------------------------//
-//          Fumeurs          //
+//          Children         //
 //---------------------------//
 
-// Fumeur avec tabac (a besoin de papier et d'allumettes)
-void smokerWithTobacco() {
+// Child with bread (needs butter and jam)
+void childWithBread() {
     while (true) {
         {
-            lock_guard<mutex> lock(mtx);  // Assure une acquisition atomique des sémaphores
-            paperSem.acquire();
-            matchSem.acquire();
+            lock_guard<mutex> lock(mtx);  // Ensures atomic acquisition of semaphores
+            butterSem.acquire();
+            jamSem.acquire();
         }
-        cout << "Le fumeur avec le tabac fabrique une cigarette.\n";
+        cout << "The child with bread is preparing breakfast.\n";
         this_thread::sleep_for(chrono::seconds(1));
-        agentSem.release();
-        cout << "Le fumeur avec le tabac fume une cigarette.\n";
+        motherSem.release();
+        cout << "The child with bread is eating breakfast.\n";
     }
 }
 
-void smokerWithPaper() {
+// Child with butter (needs bread and jam)
+void childWithButter() {
     while (true) {
         {
-            lock_guard<mutex> lock(mtx);  // Assure une acquisition atomique des sémaphores
-            tobaccoSem.acquire();
-            matchSem.acquire();
+            lock_guard<mutex> lock(mtx);  // Ensures atomic acquisition of semaphores
+            breadSem.acquire();
+            jamSem.acquire();
         }
-        cout << "Le fumeur avec le papier fabrique une cigarette.\n";
+        cout << "The child with butter is preparing breakfast.\n";
         this_thread::sleep_for(chrono::seconds(1));
-        agentSem.release();
-        cout << "Le fumeur avec le papier fume une cigarette.\n";
+        motherSem.release();
+        cout << "The child with butter is eating breakfast.\n";
     }
 }
 
-void smokerWithMatches() {
+// Child with jam (needs bread and butter)
+void childWithJam() {
     while (true) {
         {
-            lock_guard<mutex> lock(mtx);  // Assure une acquisition atomique des sémaphores
-            tobaccoSem.acquire();
-            paperSem.acquire();
+            lock_guard<mutex> lock(mtx);  // Ensures atomic acquisition of semaphores
+            breadSem.acquire();
+            butterSem.acquire();
         }
-        cout << "Le fumeur avec les allumettes fabrique une cigarette.\n";
+        cout << "The child with jam is preparing breakfast.\n";
         this_thread::sleep_for(chrono::seconds(1));
-        agentSem.release();
-        cout << "Le fumeur avec les allumettes fume une cigarette.\n";
+        motherSem.release();
+        cout << "The child with jam is eating breakfast.\n";
     }
 }
-// Agent qui place les ingrédients
-void agent() {
+
+// The mother who distributes ingredients
+void mother() {
     while (true) {
-        agentSem.acquire();
+        motherSem.acquire();
         this_thread::sleep_for(chrono::seconds(1));
 
         random_device rd;
@@ -87,33 +88,33 @@ void agent() {
             ingredient2 = dist(gen);
         }
 
-        cout << "Agent place les ingrédients : " << ingredients[ingredient1] << " et " << ingredients[ingredient2] << endl;
+        cout << "The mother places the ingredients: " << ingredients[ingredient1] << " and " << ingredients[ingredient2] << endl;
 
         if ((ingredient1 == 0 && ingredient2 == 1) || (ingredient1 == 1 && ingredient2 == 0)) {
-            tobaccoSem.release();
-            paperSem.release();
+            breadSem.release();
+            butterSem.release();
         } else if ((ingredient1 == 0 && ingredient2 == 2) || (ingredient1 == 2 && ingredient2 == 0)) {
-            tobaccoSem.release();
-            matchSem.release();
+            breadSem.release();
+            jamSem.release();
         } else if ((ingredient1 == 1 && ingredient2 == 2) || (ingredient1 == 2 && ingredient1 == 1)) {
-            paperSem.release();
-            matchSem.release();
+            butterSem.release();
+            jamSem.release();
         }
     }
 }
 
 int main() {
-    // Démarrer les threads
-    thread agentThread(agent);
-    thread smokerWithTobaccoThread(smokerWithTobacco);
-    thread smokerWithPaperThread(smokerWithPaper);
-    thread smokerWithMatchThread(smokerWithMatches);
+    // Start threads
+    thread motherThread(mother);
+    thread childWithBreadThread(childWithBread);
+    thread childWithButterThread(childWithButter);
+    thread childWithJamThread(childWithJam);
 
-    // Joindre les threads
-    agentThread.join();
-    smokerWithTobaccoThread.join();
-    smokerWithPaperThread.join();
-    smokerWithMatchThread.join();
+    // Join threads
+    motherThread.join();
+    childWithBreadThread.join();
+    childWithButterThread.join();
+    childWithJamThread.join();
 
     return 0;
 }
