@@ -8,67 +8,67 @@
 
 using namespace std;
 
-// Sémaphores pour les fumeurs
+// Semaphores for greedy children
 binary_semaphore butterGreedyChildrenSem(0);
 binary_semaphore breadGreedyChildrenSem(0);
 binary_semaphore jamGreedyChildrenSem(0);
-binary_semaphore motherSem(1); // Sémaphore pour synchroniser l'mother
+binary_semaphore motherSem(1); // Semaphore to synchronize the mother
 
-// Mutex pour protéger l'accès aux ressources partagées
+// Mutex to protect access to shared resources
 mutex mtx;
 bool isButter = false, isBread = false, isJam = false;
 
-// Map pour afficher les ingrédients
+// Map to display ingredients
 map<unsigned, string> ingredients = { {0, "Butter"}, {1, "Bread"}, {2, "Jam"} };
 
-// Fumeur avec tabac
+// Greedy child with butter
 void greedyChildrenWithButter() {
     while (true) {
-        butterGreedyChildrenSem.acquire(); // Attend que le médiateur réveille ce fumeur
-        cout << "Le fumeur avec le tabac fabrique une cigarette.\n";
-        this_thread::sleep_for(chrono::seconds(1));  // Simule la fabrication d'une cigarette
-        cout << "Le fumeur avec le tabac fume une cigarette.\n";
-        motherSem.release();  // Réveille l'mother pour qu'il fournisse les prochains ingrédients
+        butterGreedyChildrenSem.acquire(); // Waits for the mediator to wake up this child
+        cout << "The greedy child with butter is preparing breakfast.\n";
+        this_thread::sleep_for(chrono::seconds(1));  // Simulates preparing breakfast
+        cout << "The greedy child with butter is eating breakfast.\n";
+        motherSem.release();  // Wakes up the mother to provide the next ingredients
     }
 }
 
-// Fumeur avec papier
+// Greedy child with bread
 void greedyChildrenWithBread() {
     while (true) {
-        breadGreedyChildrenSem.acquire();  // Attend que le médiateur réveille ce fumeur
-        cout << "Le fumeur avec le papier fabrique une cigarette.\n";
-        this_thread::sleep_for(chrono::seconds(1));  // Simule la fabrication d'une cigarette
-        cout << "Le fumeur avec le papier fume une cigarette.\n";
-        motherSem.release();  // Réveille l'mother pour qu'il fournisse les prochains ingrédients
+        breadGreedyChildrenSem.acquire();  // Waits for the mediator to wake up this child
+        cout << "The greedy child with bread is preparing breakfast.\n";
+        this_thread::sleep_for(chrono::seconds(1));  // Simulates preparing breakfast
+        cout << "The greedy child with bread is eating breakfast.\n";
+        motherSem.release();  // Wakes up the mother to provide the next ingredients
     }
 }
 
-// Fumeur avec allumettes
+// Greedy child with jam
 void greedyChildrenWithJam() {
     while (true) {
-        jamGreedyChildrenSem.acquire();  // Attend que le médiateur réveille ce fumeur
-        cout << "Le fumeur avec les allumettes fabrique une cigarette.\n";
-        this_thread::sleep_for(chrono::seconds(1));  // Simule la fabrication d'une cigarette
-        cout << "Le fumeur avec les allumettes fume une cigarette.\n";
-        motherSem.release();  // Réveille l'mother pour qu'il fournisse les prochains ingrédients
+        jamGreedyChildrenSem.acquire();  // Waits for the mediator to wake up this child
+        cout << "The greedy child with jam is preparing breakfast.\n";
+        this_thread::sleep_for(chrono::seconds(1));  // Simulates preparing breakfast
+        cout << "The greedy child with jam is eating breakfast.\n";
+        motherSem.release();  // Wakes up the mother to provide the next ingredients
     }
 }
 
-// Médiateur
+// Mediator
 void mediator() {
     while (true) {
         lock_guard<mutex> lock(mtx);
 
         if (isButter && isBread) {
-            cout << "Réveille le fumeur avec allumettes\n";
+            cout << "Wakes up the greedy child with jam\n";
             jamGreedyChildrenSem.release();
             isButter = isBread = false;
         } else if (isButter && isJam) {
-            cout << "Réveille le fumeur avec papier\n";
+            cout << "Wakes up the greedy child with bread\n";
             breadGreedyChildrenSem.release();
             isButter = isJam = false;
         } else if (isBread && isJam) {
-            cout << "Réveille le fumeur avec tabac\n";
+            cout << "Wakes up the greedy child with butter\n";
             butterGreedyChildrenSem.release();
             isBread = isJam = false;
         }
@@ -90,7 +90,7 @@ void mother() {
         }
         {
             lock_guard<mutex> lock(mtx);
-            cout << "Mother place les ingrédients : " << ingredients[ingredient1] << " et " << ingredients[ingredient2] << endl;
+            cout << "Mother places the ingredients: " << ingredients[ingredient1] << " and " << ingredients[ingredient2] << endl;
             if ((ingredient1 == 0 && ingredient2 == 1) || (ingredient1 == 1 && ingredient2 == 0)) {
                 isButter = true;
                 isBread = true;
@@ -108,14 +108,14 @@ void mother() {
 
 
 int main() {
-    // Démarrer les threads
+    // Start threads
     thread motherThread(mother);
     thread mediatorThread(mediator);
     thread greedyChildrenWithButterThread(greedyChildrenWithButter);
     thread greedyChildrenWithBreadThread(greedyChildrenWithBread);
     thread greedyChildrenWithJamThread(greedyChildrenWithJam);
 
-    // Joindre les threads
+    // Join threads
     motherThread.join();
     mediatorThread.join();
     greedyChildrenWithButterThread.join();
