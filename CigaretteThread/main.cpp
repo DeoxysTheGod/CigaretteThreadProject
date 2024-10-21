@@ -9,48 +9,48 @@
 using namespace std;
 
 // Sémaphores pour les fumeurs
-binary_semaphore tobaccoSmokerSem(0);
-binary_semaphore paperSmokerSem(0);
-binary_semaphore matchSmokerSem(0);
-binary_semaphore agentSem(1); // Sémaphore pour synchroniser l'agent
+binary_semaphore butterGreedyChildrenSem(0);
+binary_semaphore breadGreedyChildrenSem(0);
+binary_semaphore jamGreedyChildrenSem(0);
+binary_semaphore motherSem(1); // Sémaphore pour synchroniser l'mother
 
 // Mutex pour protéger l'accès aux ressources partagées
 mutex mtx;
-bool isTobacco = false, isPaper = false, isMatch = false;
+bool isButter = false, isBread = false, isJam = false;
 
 // Map pour afficher les ingrédients
-map<unsigned, string> ingredients = { {0, "Tobacco"}, {1, "Paper"}, {2, "Match"} };
+map<unsigned, string> ingredients = { {0, "Butter"}, {1, "Bread"}, {2, "Jam"} };
 
 // Fumeur avec tabac
-void smokerWithTobacco() {
+void greedyChildrenWithButter() {
     while (true) {
-        tobaccoSmokerSem.acquire(); // Attend que le médiateur réveille ce fumeur
+        butterGreedyChildrenSem.acquire(); // Attend que le médiateur réveille ce fumeur
         cout << "Le fumeur avec le tabac fabrique une cigarette.\n";
         this_thread::sleep_for(chrono::seconds(1));  // Simule la fabrication d'une cigarette
         cout << "Le fumeur avec le tabac fume une cigarette.\n";
-        agentSem.release();  // Réveille l'agent pour qu'il fournisse les prochains ingrédients
+        motherSem.release();  // Réveille l'mother pour qu'il fournisse les prochains ingrédients
     }
 }
 
 // Fumeur avec papier
-void smokerWithPaper() {
+void greedyChildrenWithBread() {
     while (true) {
-        paperSmokerSem.acquire();  // Attend que le médiateur réveille ce fumeur
+        breadGreedyChildrenSem.acquire();  // Attend que le médiateur réveille ce fumeur
         cout << "Le fumeur avec le papier fabrique une cigarette.\n";
         this_thread::sleep_for(chrono::seconds(1));  // Simule la fabrication d'une cigarette
         cout << "Le fumeur avec le papier fume une cigarette.\n";
-        agentSem.release();  // Réveille l'agent pour qu'il fournisse les prochains ingrédients
+        motherSem.release();  // Réveille l'mother pour qu'il fournisse les prochains ingrédients
     }
 }
 
 // Fumeur avec allumettes
-void smokerWithMatches() {
+void greedyChildrenWithJam() {
     while (true) {
-        matchSmokerSem.acquire();  // Attend que le médiateur réveille ce fumeur
+        jamGreedyChildrenSem.acquire();  // Attend que le médiateur réveille ce fumeur
         cout << "Le fumeur avec les allumettes fabrique une cigarette.\n";
         this_thread::sleep_for(chrono::seconds(1));  // Simule la fabrication d'une cigarette
         cout << "Le fumeur avec les allumettes fume une cigarette.\n";
-        agentSem.release();  // Réveille l'agent pour qu'il fournisse les prochains ingrédients
+        motherSem.release();  // Réveille l'mother pour qu'il fournisse les prochains ingrédients
     }
 }
 
@@ -59,26 +59,26 @@ void mediator() {
     while (true) {
         lock_guard<mutex> lock(mtx);
 
-        if (isTobacco && isPaper) {
+        if (isButter && isBread) {
             cout << "Réveille le fumeur avec allumettes\n";
-            matchSmokerSem.release();
-            isTobacco = isPaper = false;
-        } else if (isTobacco && isMatch) {
+            jamGreedyChildrenSem.release();
+            isButter = isBread = false;
+        } else if (isButter && isJam) {
             cout << "Réveille le fumeur avec papier\n";
-            paperSmokerSem.release();
-            isTobacco = isMatch = false;
-        } else if (isPaper && isMatch) {
+            breadGreedyChildrenSem.release();
+            isButter = isJam = false;
+        } else if (isBread && isJam) {
             cout << "Réveille le fumeur avec tabac\n";
-            tobaccoSmokerSem.release();
-            isPaper = isMatch = false;
+            butterGreedyChildrenSem.release();
+            isBread = isJam = false;
         }
     }
 }
 
-// Agent
-void agent() {
+// Mother
+void mother() {
     while (true) {
-        agentSem.acquire();
+        motherSem.acquire();
         this_thread::sleep_for(chrono::seconds(1));
         random_device rd;
         mt19937 gen(rd());
@@ -90,16 +90,16 @@ void agent() {
         }
         {
             lock_guard<mutex> lock(mtx);
-            cout << "Agent place les ingrédients : " << ingredients[ingredient1] << " et " << ingredients[ingredient2] << endl;
+            cout << "Mother place les ingrédients : " << ingredients[ingredient1] << " et " << ingredients[ingredient2] << endl;
             if ((ingredient1 == 0 && ingredient2 == 1) || (ingredient1 == 1 && ingredient2 == 0)) {
-                isTobacco = true;
-                isPaper = true;
+                isButter = true;
+                isBread = true;
             } else if ((ingredient1 == 0 && ingredient2 == 2) || (ingredient1 == 2 && ingredient2 == 0)) {
-                isTobacco = true;
-                isMatch = true;
+                isButter = true;
+                isJam = true;
             } else if ((ingredient1 == 1 && ingredient2 == 2) || (ingredient1 == 2 && ingredient1 == 1)) {
-                isPaper = true;
-                isMatch = true;
+                isBread = true;
+                isJam = true;
             }
         }
         this_thread::sleep_for(chrono::milliseconds(100));
@@ -109,18 +109,18 @@ void agent() {
 
 int main() {
     // Démarrer les threads
-    thread agentThread(agent);
+    thread motherThread(mother);
     thread mediatorThread(mediator);
-    thread smokerWithTobaccoThread(smokerWithTobacco);
-    thread smokerWithPaperThread(smokerWithPaper);
-    thread smokerWithMatchThread(smokerWithMatches);
+    thread greedyChildrenWithButterThread(greedyChildrenWithButter);
+    thread greedyChildrenWithBreadThread(greedyChildrenWithBread);
+    thread greedyChildrenWithJamThread(greedyChildrenWithJam);
 
     // Joindre les threads
-    agentThread.join();
+    motherThread.join();
     mediatorThread.join();
-    smokerWithTobaccoThread.join();
-    smokerWithPaperThread.join();
-    smokerWithMatchThread.join();
+    greedyChildrenWithButterThread.join();
+    greedyChildrenWithBreadThread.join();
+    greedyChildrenWithJamThread.join();
 
     return 0;
 }
